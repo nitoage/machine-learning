@@ -1,15 +1,9 @@
-
 # coding: utf-8
-
-# In[ ]:
 
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import json
-
-
-# In[ ]:
 
 class CompareFeatures():
     def __init__(self):
@@ -251,18 +245,13 @@ class CompareFeatures():
 #         plt.imshow(img)
         plt.show()
 
-
-# In[ ]:
-
-# テストベースシナリオ
-
-f = open('sample_senario.json', 'r')
-data = json.load(f)
-# print(data)
-# 解像度
-scale='#540*888#'
-print(scale)
 if __name__ == '__main__':
+    f = open('sample_senario.json', 'r')
+    data = json.load(f)
+    # print(data)
+    # 解像度
+    scale='#540*888#'
+    print(scale)
     cf = CompareFeatures()
     for key in data:
         bs=data[key]
@@ -275,4 +264,3 @@ if __name__ == '__main__':
             print("待機:10,10,0,0,0,0".format(pos))
         except:
             pass
-

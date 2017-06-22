@@ -5,10 +5,9 @@ from VideoAnalyze import  VideoAnalyze
 import json
 import sys
 import os
-
+import shutil
 
 #sys.argv=['run.py','1.mp4']
-
 
 # テストベースシナリオ
 if __name__ == '__main__':
@@ -16,6 +15,11 @@ if __name__ == '__main__':
     if len(sys.argv) < 1:
         print('Usage: python3 video_analyze.py video_name.mp4')
         sys.exit(1)
+
+
+    if os.path.isdir("./s_img"):
+        shutil.rmtree("./s_img")
+    os.mkdir("./s_img")
 
     va=VideoAnalyze(sys.argv[1])
     try:
@@ -26,19 +30,14 @@ if __name__ == '__main__':
     except Exception as e:
         print("ERROR : Generate to base_senario.json. ")
         print(e)
-        sys.exit(1)
-    
-    if not os.path.isdir("./s_img"):
-        os.mkdir("./s_img")
     
     # ベースシナリオjson読み込み
 #     f = open('base_senario.json', 'r')
 #     data = json.load(f)
-#    print(senario_dict)
     data = senario_dict
-
+#    print(data)
     # 解像度
-    scale='#540*888#'
+    scale='#1080*1980#'
     print(scale)
     cf = CompareFeatures()
     for key in data:

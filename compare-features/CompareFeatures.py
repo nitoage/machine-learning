@@ -246,7 +246,7 @@ class CompareFeatures():
         plt.show()
 
 if __name__ == '__main__':
-    f = open('sample_senario.json', 'r')
+    f = open('base_senario.json', 'r')
     data = json.load(f)
     # print(data)
     # 解像度

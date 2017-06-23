@@ -24,9 +24,9 @@ if __name__ == '__main__':
     va=VideoAnalyze(sys.argv[1])
     try:
         senario_dict=va.main()
-#         f = open('{0}.json'.format("base_senario"), 'w')
-#         json.dump(senario_dict, f)
-#         f.close()
+        f = open('{0}.json'.format("base_senario"), 'w')
+        json.dump(senario_dict, f)
+        f.close()
     except Exception as e:
         print("ERROR : Generate to base_senario.json. ")
         print(e)

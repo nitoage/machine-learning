@@ -148,9 +148,9 @@ class CompareFeatures():
                            flags = 2)
 
         # opencv
-#         self.view(img)
+        self.view(img2)
         # matplot
-        self.view_matplot(img2)
+#        self.view_matplot(img2)
 
     def get_postion(self, IS_PARENT=False):
         if self.base is None or self.match is None:
@@ -179,10 +179,19 @@ class CompareFeatures():
                 center=(self.parent_postion[0]+dst[:,0][:,0].mean(),self.parent_postion[1]+dst[:,0][:,1].mean())
 
             self.parent_postion = []
+            self.parent_img = {}
             if IS_PARENT:
                 self.parent_postion=dst[:,0][0]
-            return center
 
+                trim_img = self.base.copy()
+                self.base = trim_img[int(dst[:,0][0][1]):int(dst[:,0][2][1]), int(dst[:,0][0][0]):int(dst[:,0][2][1])]
+                self.parent_img['base']=self.base.copy()
+                self.parent_img['match']=self.match.copy()
+
+            img2 = cv2.polylines(tgt_img,[np.int32(dst)],True,255,3, cv2.LINE_AA)
+            cv2.circle(img2, center, 5, (255, 0, 0), -1)
+
+            return center
         else:
             print("Not enough matches are found - %d/%d" % (len(matched),MIN_MATCH_COUNT))
             matchesMask = None
@@ -259,7 +268,8 @@ if __name__ == '__main__':
         cf.get_postion(IS_PARENT=True)
         cf.load_imgs(bs['tap']['base'],bs['tap']['match'],scale=(1,bs['tap']['scale']))
         try:
-            pos = cf.get_postion()
+            #pos = cf.get_postion()
+            pos = cf.show_rect()
             print("タップ:0,{0},{1},0,0,0".format(pos[0],pos[1]))
             print("待機:10,10,0,0,0,0".format(pos))
         except:

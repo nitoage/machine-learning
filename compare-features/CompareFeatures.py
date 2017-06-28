@@ -1,20 +1,13 @@
 # coding: utf-8
 
 import cv2
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import numpy as np
 import json
+import traceback
 
 class CompareFeatures():
     def __init__(self):
-        #特徴点抽出
-        # AgastFeature検出器の生成
-#         self.detector = cv2.AgastFeatureDetector_create()
-        # FAST検出器の生成
-#         self.detector = cv2.FastFeatureDetector_create()
-        # MSER検出器の生成
-#         self.detector = cv2.MSER_create()
-
         # 特徴量抽出
         # A-KAZE検出器の生成
 #         self.detector = cv2.AKAZE_create()
@@ -29,6 +22,7 @@ class CompareFeatures():
 
         # Brute-Force Matcher生成
         self.bf=cv2.BFMatcher(cv2.NORM_L1,crossCheck=False)
+        #plt.figure(figsize=(16,12))
 
     def load_imgs(self,base_img,match_img, scale=(1,1)):
         try:
@@ -93,15 +87,73 @@ class CompareFeatures():
         self.view_matplot(img)
 
     def show_rect(self, IS_PARENT=False):
+        print("############ show rect ############")
         if self.base is None or self.match is None:
             print("Image has not been loaded yet. Please load imgs")
             raise
+
         matched,kp1,kp2 = self.f_match()
+        MIN_MATCH_COUNT = 4
+        if len(matched)>=MIN_MATCH_COUNT:
+            src_pts = np.float32([ kp1[m[0].queryIdx].pt for m in matched ]).reshape(-1,1,2)
+            dst_pts = np.float32([ kp2[m[0].trainIdx].pt for m in matched ]).reshape(-1,1,2)
 
-        FLANN_INDEX_KDTREE = 0
-        index_params = dict(algorithm = FLANN_INDEX_KDTREE, trees = 5)
-        search_params = dict(checks = 50)
+            M, mask = cv2.findHomography(src_pts, dst_pts, cv2.LMEDS,5.0)
+            matchesMask = mask.ravel().tolist()
 
+            h,w,a = self.match.shape
+            pts = np.float32([ [0,0],[0,h-1],[w-1,h-1],[w-1,0] ]).reshape(-1,1,2)
+            dst = cv2.perspectiveTransform(pts,M)
+#             print(dst)
+            center=(dst[:,0][:,0].mean(),dst[:,0][:,1].mean())
+            tgt_img=self.base.copy()
+            if not IS_PARENT:
+                print("GET PARENT POS : ",  self.parent_postion)
+                center=(self.parent_postion[0]+dst[:,0][:,0].mean(),self.parent_postion[1]+dst[:,0][:,1].mean())
+                tgt_img=self.parent_img['base']
+
+            if IS_PARENT:
+                self.parent_postion = []
+                self.parent_img = {}
+                self.parent_postion=[0,int(center[1])-60]
+
+                trim_img = tgt_img.copy()
+#                 trim_img =  cv2.bitwise_and(trim_img, trim_img, mask=mask)
+                height, width = trim_img.shape[:2]
+#                 self.base = trim_img[int(dst[:,0][0][1]):int(dst[:,0][2][1]), int(dst[:,0][0][0]):int(dst[:,0][2][0])]
+                self.base = trim_img[int(center[1])-60:int(center[1])+60, 0:width]
+                print("Trim IMG : x{2}, y{0}, : x{3}, y{1}".format(int(center[0])-30,int(center[0])+30,0,width))
+                self.view_matplot(self.base)
+                self.parent_img['base']=tgt_img
+                show_img=tgt_img.copy()
+                clour=(255,0,0)
+            else:
+                print("############### TAP IMAGE!!!!!!!! ###############")
+                show_img = self.parent_img['base']
+                clour=(0,0,255)
+                self.base = None
+                self.parent_postion = []
+                self.parent_img = {}
+
+            if tgt_img is None or tgt_img.size == 0:
+                print("Target Not found !!!!!!!")
+                return (0,0)
+            
+            img2 = cv2.polylines(show_img,[np.int32(dst)],True,255,3, cv2.LINE_AA)
+            cv2.circle(img2, (int(center[0]),int(center[1])), 50, clour, -1)
+            print("CREATE IMG")
+            self.view_matplot(img2)
+            return center
+        else:
+            print("Not enough matches are found - %d/%d" % (len(matched),MIN_MATCH_COUNT))
+            raise
+
+    def get_postion(self, IS_PARENT=False):
+        if self.base is None or self.match is None:
+            print("Image has not been loaded yet. Please load imgs")
+            raise
+
+        matched,kp1,kp2 = self.f_match()
         MIN_MATCH_COUNT = 4
         if len(matched)>=MIN_MATCH_COUNT:
             src_pts = np.float32([ kp1[m[0].queryIdx].pt for m in matched ]).reshape(-1,1,2)
@@ -113,88 +165,36 @@ class CompareFeatures():
             h,w,a = self.match.shape
             pts = np.float32([ [0,0],[0,h-1],[w-1,h-1],[w-1,0] ]).reshape(-1,1,2)
             dst = cv2.perspectiveTransform(pts,M)
-            print(dst)
             center=(dst[:,0][:,0].mean(),dst[:,0][:,1].mean())
-            tgt_img=self.base
-
-            if 'parent_postion' in dir(self) and len(self.parent_postion):
-                print(self.parent_postion)
+            tgt_img=self.base.copy()
+            if not IS_PARENT:
                 center=(self.parent_postion[0]+dst[:,0][:,0].mean(),self.parent_postion[1]+dst[:,0][:,1].mean())
                 tgt_img=self.parent_img['base']
 
-            self.parent_postion = []
-            self.parent_img = {}
             if IS_PARENT:
-                self.parent_postion=dst[:,0][0]
+                self.parent_postion = []
+                self.parent_img = {}
+                self.parent_postion=[0,int(center[1])-60]
 
-                trim_img = self.base.copy()
-                print(dst[:,0][0][1])
-                print(dst[:,0][2][1])
-                print(dst[:,0][0][0])
-                print(dst[:,0][2][1])
-                self.base = trim_img[int(dst[:,0][0][1]):int(dst[:,0][2][1]), int(dst[:,0][0][0]):int(dst[:,0][2][1])]
-                self.parent_img['base']=self.base.copy()
-                self.parent_img['match']=self.match.copy()
+                trim_img = tgt_img.copy()
+                height, width = trim_img.shape[:2]
+                self.base = trim_img[int(center[1])-60:int(center[1])+60, 0:width]
+                self.parent_img['base']=tgt_img
+                show_img=tgt_img.copy()
+                clour=(255,0,0)
+            else:
+                show_img = self.parent_img['base']
+                clour=(0,0,255)
+                self.base = None
+                self.parent_postion = []
+                self.parent_img = {}
 
-            img2 = cv2.polylines(tgt_img,[np.int32(dst)],True,255,3, cv2.LINE_AA)
-            cv2.circle(img2, center, 5, (255, 0, 0), -1)
-        else:
-            print("Not enough matches are found - %d/%d" % (len(matched),MIN_MATCH_COUNT))
-            matchesMask = None
-
-        draw_params = dict(matchColor = (0,255,0), # draw matches in green color
-                           singlePointColor = None,
-                           matchesMask = matchesMask, # draw only inliers
-                           flags = 2)
-
-        # opencv
-        self.view(img2)
-        # matplot
-#        self.view_matplot(img2)
-
-    def get_postion(self, IS_PARENT=False):
-        if self.base is None or self.match is None:
-            print("Image has not been loaded yet. Please load imgs")
-            raise
-        matched,kp1,kp2 = self.f_match()
-
-        FLANN_INDEX_KDTREE = 0
-        index_params = dict(algorithm = FLANN_INDEX_KDTREE, trees = 5)
-        search_params = dict(checks = 50)
-
-        MIN_MATCH_COUNT = 4
-        if len(matched)>MIN_MATCH_COUNT:
-            src_pts = np.float32([ kp1[m[0].queryIdx].pt for m in matched ]).reshape(-1,1,2)
-            dst_pts = np.float32([ kp2[m[0].trainIdx].pt for m in matched ]).reshape(-1,1,2)
-
-            M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC,5.0)
-            matchesMask = mask.ravel().tolist()
-
-            h,w,a = self.match.shape
-            pts = np.float32([ [0,0],[0,h-1],[w-1,h-1],[w-1,0] ]).reshape(-1,1,2)
-            dst = cv2.perspectiveTransform(pts,M)
-            center=(dst[:,0][:,0].mean(),dst[:,0][:,1].mean())
-            if 'parent_postion' in dir(self) and len(self.parent_postion):
-#                 print(self.parent_postion)
-                center=(self.parent_postion[0]+dst[:,0][:,0].mean(),self.parent_postion[1]+dst[:,0][:,1].mean())
-
-            self.parent_postion = []
-            self.parent_img = {}
-            if IS_PARENT:
-                self.parent_postion=dst[:,0][0]
-
-                trim_img = self.base.copy()
-                self.base = trim_img[int(dst[:,0][0][1]):int(dst[:,0][2][1]), int(dst[:,0][0][0]):int(dst[:,0][2][1])]
-                self.parent_img['base']=self.base.copy()
-                self.parent_img['match']=self.match.copy()
-
-            img2 = cv2.polylines(tgt_img,[np.int32(dst)],True,255,3, cv2.LINE_AA)
-            cv2.circle(img2, center, 5, (255, 0, 0), -1)
-
+            if tgt_img is None or tgt_img.size == 0:
+                return (0,0)
             return center
         else:
-            print("Not enough matches are found - %d/%d" % (len(matched),MIN_MATCH_COUNT))
-            matchesMask = None
+            # Not enough matches are found MIN_MATCH_COUNT
+            raise
 
     def to_grayscale(self,img):
         grayed = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -241,15 +241,16 @@ class CompareFeatures():
         canny_img = cv2.Canny(gray, 50, 110)
         return canny_img
     
+    ##### 描画用メソッド　（OpenCV） #####
     def view(self, img):
         # 画像表示
         cv2.imshow('img', img)
         # キー押下で終了
         cv2.waitKey(0)
         cv2.destroyAllWindows()
-        
+
+    ##### 描画用メソッド　（matplotlib） #####
     def view_matplot(self, img):
-        plt.figure(figsize=(16,12))
         plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
 #         plt.imshow(img)
         plt.show()
@@ -257,20 +258,23 @@ class CompareFeatures():
 if __name__ == '__main__':
     f = open('base_senario.json', 'r')
     data = json.load(f)
-    # print(data)
     # 解像度
-    scale='#540*888#'
+    scale='#1080*1980#'
     print(scale)
     cf = CompareFeatures()
     for key in data:
         bs=data[key]
-        cf.load_imgs(bs['line']['base'],bs['line']['match'],scale=(1,bs['line']['scale']))
-        cf.get_postion(IS_PARENT=True)
-        cf.load_imgs(bs['tap']['base'],bs['tap']['match'],scale=(1,bs['tap']['scale']))
         try:
-            #pos = cf.get_postion()
-            pos = cf.show_rect()
-            print("タップ:0,{0},{1},0,0,0".format(pos[0],pos[1]))
-            print("待機:10,10,0,0,0,0".format(pos))
-        except:
+            pos = ()
+            cf.load_imgs(bs['line']['base'],bs['line']['match'],scale=(1,bs['line']['scale']))
+            pos = cf.get_postion(IS_PARENT=True)
+            # pos = cf.show_rect(IS_PARENT=True)
+            cf.load_imgs(bs['tap']['base'],bs['tap']['match'],scale=(1,bs['tap']['scale']))
+            pos = cf.get_postion()
+            # pos = cf.show_rect()
+        except Exception as e:
             pass
+        finally:
+            if pos:
+                print("タップ:0,{0},{1},0,0,0".format(int(pos[0]),int(pos[1])))
+                print("待機:10,10,0,0,0,0")

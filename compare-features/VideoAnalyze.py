@@ -106,10 +106,13 @@ class VideoAnalyze():
         im1=cv2.cvtColor(im1, cv2.COLOR_RGB2GRAY)
         im2=cv2.cvtColor(im2, cv2.COLOR_RGB2GRAY)
         im3=cv2.cvtColor(im3, cv2.COLOR_RGB2GRAY)
-
+        mask_img=cv2.imread('./mask.png', 0)
         d1 = cv2.absdiff(im3, im2)
         d2 = cv2.absdiff(im2, im1)
-        diff = cv2.bitwise_and(d1, d2)
+        if len(mask_img):
+            diff = cv2.bitwise_and(d1, d2, mask=mask_img)
+        else:
+            diff = cv2.bitwise_and(d1, d2)
         
         # 差分が閾値より小さければTrue
         mask = diff<th
@@ -123,7 +126,7 @@ class VideoAnalyze():
         # 8近傍で膨張処理
         im_mask = cv2.dilate(im_mask,
                               self.neiborhood8,
-                              iterations=5)
+                              iterations=20)
         # ノイズ除去
         im_mask = cv2.medianBlur(im_mask,blur)
 
@@ -135,7 +138,8 @@ class VideoAnalyze():
         for contour in contours:
             approx = cv2.convexHull(contour)
             rect = cv2.boundingRect(approx)
-            rects.append(np.array(rect))
+            if rect[2]>70 and rect[3]>70 and rect[2]<200 and rect[3]<200:
+                rects.append(np.array(rect))
         return rects
     
     def main(self):
@@ -166,8 +170,6 @@ class VideoAnalyze():
             frame_fs = self.flame_diff(frame1.copy(),frame2.copy(),frame3.copy(), 5, 0,5)
             rect = self.find_rect(frame_fs.copy())
             ct+=1
-            if ct>10:
-                is_print=True
 
             if is_print and len(rect) and len(rect) <3:
                 is_print=False
@@ -182,6 +184,9 @@ class VideoAnalyze():
 
                 self.compare_frame(frame2)
                 i=self.create_base_sienario(frame2, rect, senario_dict, i)
+            elif not len(rect):
+                if ct>15:
+                    is_print = True
 
             frame1 = frame2
             frame2 = frame3
